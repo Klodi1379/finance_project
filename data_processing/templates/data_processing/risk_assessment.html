@@ -1,0 +1,67 @@
+{% extends 'base.html' %}
+
+{% block title %}Risk Assessment{% endblock %}
+
+{% block content %}
+<h1>Risk Assessment</h1>
+<form id="riskForm">
+    <div class="mb-3">
+        <label for="symbol" class="form-label">Stock Symbol</label>
+        <input type="text" class="form-control" id="symbol" name="symbol" required>
+    </div>
+    <div class="mb-3">
+        <label for="start_date" class="form-label">Start Date</label>
+        <input type="date" class="form-control" id="start_date" name="start_date" required>
+    </div>
+    <div class="mb-3">
+        <label for="end_date" class="form-label">End Date</label>
+        <input type="date" class="form-control" id="end_date" name="end_date" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Assess Risk</button>
+</form>
+
+<div id="results" class="mt-4">
+    <div id="riskResults"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('riskForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            symbol: document.getElementById('symbol').value,
+            start_date: document.getElementById('start_date').value,
+            end_date: document.getElementById('end_date').value
+        };
+
+        fetch('{% url "data_processing:risk_assessment" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            const riskResultsDiv = document.getElementById('riskResults');
+            if (data.success) {
+                riskResultsDiv.innerHTML = `
+                    <h2>Risk Assessment Results</h2>
+                    <p>Value at Risk (VaR): ${data.var.toFixed(2)}</p>
+                    <p>Conditional Value at Risk (CVaR): ${data.cvar.toFixed(2)}</p>
+                `;
+            } else {
+                riskResultsDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            document.getElementById('riskResults').innerHTML = `<div class="alert alert-danger">An error occurred: ${error}</div>`;
+        });
+    });
+});
+</script>
+{% endblock %}

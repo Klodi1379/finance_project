@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block title %}Home - Financial Analysis{% endblock %}
+
+{% block content %}
+<h1>Finance Dashboard</h1>
+<ul>
+{% for item in data %}
+    <li>{{ item.symbol }}: ${{ item.price }} ({{ item.date }})</li>
+{% endfor %}
+</ul>
+{% endblock %}

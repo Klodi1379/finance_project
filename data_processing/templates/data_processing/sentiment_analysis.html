@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+
+{% block title %}Sentiment Analysis{% endblock %}
+
+{% block content %}
+<h1>Sentiment Analysis</h1>
+<form id="sentimentForm">
+    <div class="mb-3">
+        <label for="text" class="form-label">Text</label>
+        <textarea class="form-control" id="text" name="text" rows="4" required></textarea>
+    </div>
+    <button type="submit" class="btn btn-primary">Analyze Sentiment</button>
+</form>
+
+<div id="results" class="mt-4">
+    <div id="sentimentResults"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('sentimentForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            text: document.getElementById('text').value
+        };
+
+        fetch('{% url "data_processing:sentiment_analysis" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            const sentimentResultsDiv = document.getElementById('sentimentResults');
+            if (data.success) {
+                sentimentResultsDiv.innerHTML = `
+                    <h2>Sentiment Analysis Results</h2>
+                    <p>Positive: ${data.sentiment.pos}</p>
+                    <p>Neutral: ${data.sentiment.neu}</p>
+                    <p>Negative: ${data.sentiment.neg}</p>
+                    <p>Compound: ${data.sentiment.compound}</p>
+                `;
+            } else {
+                sentimentResultsDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            document.getElementById('sentimentResults').innerHTML = `<div class="alert alert-danger">An error occurred: ${error}</div>`;
+        });
+    });
+});
+</script>
+{% endblock %}

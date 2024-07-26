@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+
+{% block title %}LSTM Analysis{% endblock %}
+
+{% block content %}
+<h1>LSTM Analysis</h1>
+<form id="lstmForm">
+    <!-- Form fields same as before -->
+    <div class="mb-3">
+        <label for="symbol" class="form-label">Stock Symbol</label>
+        <select class="form-control" id="symbol" name="symbol" required>
+            <option value="AAPL">Apple (AAPL)</option>
+            <option value="GOOGL">Alphabet (GOOGL)</option>
+            <option value="MSFT">Microsoft (MSFT)</option>
+            <option value="AMZN">Amazon (AMZN)</option>
+            <option value="TSLA">Tesla (TSLA)</option>
+        </select>
+    </div>
+    <div class="mb-3">
+        <label for="start_date" class="form-label">Start Date</label>
+        <input type="date" class="form-control" id="start_date" name="start_date" required>
+    </div>
+    <div class="mb-3">
+        <label for="end_date" class="form-label">End Date</label>
+        <input type="date" class="form-control" id="end_date" name="end_date" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Process Data</button>
+</form>
+
+<div id="results" class="mt-4">
+    <div id="tableResults"></div>
+    <canvas id="stockChart" width="400" height="200"></canvas>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let stockChart = null;
+
+    document.getElementById('lstmForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            symbol: document.getElementById('symbol').value,
+            start_date: document.getElementById('start_date').value,
+            end_date: document.getElementById('end_date').value
+        };
+
+        fetch('{% url "data_processing:lstm_analysis" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            const tableResultsDiv = document.getElementById('tableResults');
+            if (data.success) {
+                // Populate table
+                tableResultsDiv.innerHTML = '';
+                const table = document.createElement('table');
+                table.classList.add('table', 'table-striped');
+                const thead = document.createElement('thead');
+                thead.innerHTML = '<tr><th>Date</th><th>Close Price</th><th>Moving Average</th><th>Daily Return</th><th>Prediction</th></tr>';
+                table.appendChild(thead);
+                const tbody = document.createElement('tbody');
+                data.results.forEach(row => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${row.Date}</td><td>${row.Close.toFixed(2)}</td><td>${row.MA.toFixed(2)}</td><td>${row.Daily_Return.toFixed(2)}%</td><td>${row.Prediction.toFixed(2)}</td>`;
+                    tbody.appendChild(tr);
+                });
+                table.appendChild(tbody);
+                tableResultsDiv.appendChild(table);
+
+                // Create chart
+                const ctx = document.getElementById('stockChart').getContext('2d');
+                if (stockChart) {
+                    stockChart.destroy();
+                }
+                const chartData = {
+                    labels: data.results.map(row => row.Date),
+                    datasets: [
+                        {
+                            label: 'Close Price',
+                            data: data.results.map(row => row.Close),
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1,
+                            fill: false
+                        },
+                        {
+                            label: 'Moving Average',
+                            data: data.results.map(row => row.MA),
+                            borderColor: 'rgba(153, 102, 255, 1)',
+                            borderWidth: 1,
+                            fill: false
+                        },
+                        {
+                            label: 'Daily Return',
+                            data: data.results.map(row => row.Daily_Return),
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 1,
+                            fill: false,
+                            yAxisID: 'y1'
+                        },
+                        {
+                            label: 'Prediction',
+                            data: data.results.map(row => row.Prediction),
+                            borderColor: 'rgba(255, 206, 86, 1)',
+                            borderWidth: 1,
+                            fill: false
+                        }
+                    ]
+                };
+
+                const chartOptions = {
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                unit: 'day',
+                                tooltipFormat: 'MMM dd, yyyy',
+                                displayFormats: {
+                                    day: 'MMM dd'
+                                }
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            position: 'left'
+                        },
+                        y1: {
+                            beginAtZero: true,
+                            position: 'right',
+                            grid: {
+                                drawOnChartArea: false // only want the grid lines for one axis to show up
+                            }
+                        }
+                    }
+                };
+
+                stockChart = new Chart(ctx, {
+                    type: 'line',
+                    data: chartData,
+                    options: chartOptions
+                });
+
+            } else {
+                tableResultsDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            document.getElementById('tableResults').innerHTML = `<div class="alert alert-danger">An error occurred: ${error}</div>`;
+        });
+    });
+});
+</script>
+{% endblock %}

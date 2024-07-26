@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block title %}Optimize Portfolio{% endblock %}
+
+{% block content %}
+<h1>Optimize Portfolio</h1>
+<form id="portfolioForm">
+    <div class="mb-3">
+        <label for="symbols" class="form-label">Stock Symbols (comma separated)</label>
+        <input type="text" class="form-control" id="symbols" name="symbols" required>
+    </div>
+    <div class="mb-3">
+        <label for="start_date" class="form-label">Start Date</label>
+        <input type="date" class="form-control" id="start_date" name="start_date" required>
+    </div>
+    <div class="mb-3">
+        <label for="end_date" class="form-label">End Date</label>
+        <input type="date" class="form-control" id="end_date" name="end_date" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Optimize</button>
+</form>
+
+<div id="results" class="mt-4">
+    <div id="portfolioResults"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('portfolioForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            symbols: document.getElementById('symbols').value.split(',').map(s => s.trim()),
+            start_date: document.getElementById('start_date').value,
+            end_date: document.getElementById('end_date').value
+        };
+
+        fetch('{% url "data_processing:optimize_portfolio" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            const portfolioResultsDiv = document.getElementById('portfolioResults');
+            if (data.success) {
+                portfolioResultsDiv.innerHTML = `
+                    <h2>Optimal Portfolio Weights</h2>
+                    ${data.weights.map((weight, index) => `
+                        <p>Stock ${formData.symbols[index]}: ${(weight * 100).toFixed(2)}%</p>
+                    `).join('')}
+                `;
+            } else {
+                portfolioResultsDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            document.getElementById('portfolioResults').innerHTML = `<div class="alert alert-danger">An error occurred: ${error}</div>`;
+        });
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+
+{% block title %}ARIMA Analysis{% endblock %}
+
+{% block content %}
+<h1>ARIMA Analysis</h1>
+<form id="arimaForm">
+    <!-- Form fields same as before -->
+</form>
+
+<div id="results" class="mt-4">
+    <div id="tableResults"></div>
+    <canvas id="stockChart" width="400" height="200"></canvas>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let stockChart = null;
+
+    document.getElementById('arimaForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            symbol: document.getElementById('symbol').value,
+            start_date: document.getElementById('start_date').value,
+            end_date: document.getElementById('end_date').value
+        };
+
+        fetch('{% url "data_processing:arima_analysis" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            const tableResultsDiv = document.getElementById('tableResults');
+            if (data.success) {
+                // Populate table and create chart as before with added predictions
+            } else {
+                tableResultsDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            document.getElementById('tableResults').innerHTML = `<div class="alert alert-danger">An error occurred: ${error}</div>`;
+        });
+    });
+});
+</script>
+{% endblock %}

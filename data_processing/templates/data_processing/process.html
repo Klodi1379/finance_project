@@ -1,0 +1,198 @@
+{% extends 'base.html' %}
+
+{% block title %}Process Data{% endblock %}
+
+{% block content %}
+<h1>Process Stock Data</h1>
+<form id="stockForm">
+    <div class="mb-3">
+        <label for="symbol" class="form-label">Stock Symbol</label>
+        <select class="form-control" id="symbol" name="symbol" required>
+            <option value="AAPL">Apple (AAPL)</option>
+            <option value="GOOGL">Alphabet (GOOGL)</option>
+            <option value="MSFT">Microsoft (MSFT)</option>
+            <option value="AMZN">Amazon (AMZN)</option>
+            <option value="TSLA">Tesla (TSLA)</option>
+        </select>
+    </div>
+    <div class="mb-3">
+        <label for="start_date" class="form-label">Start Date</label>
+        <input type="date" class="form-control" id="start_date" name="start_date" required>
+    </div>
+    <div class="mb-3">
+        <label for="end_date" class="form-label">End Date</label>
+        <input type="date" class="form-control" id="end_date" name="end_date" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Process Data</button>
+</form>
+
+<div id="results" class="mt-4">
+    <div id="tableResults"></div>
+    <canvas id="stockChart" width="400" height="200"></canvas>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let stockChart = null;  // Variable to store the chart instance
+
+    document.getElementById('stockForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            symbol: document.getElementById('symbol').value,
+            start_date: document.getElementById('start_date').value,
+            end_date: document.getElementById('end_date').value
+        };
+
+        fetch('{% url "data_processing:process_data" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            const tableResultsDiv = document.getElementById('tableResults');
+            if (data.success) {
+                // Create and populate the results table
+                tableResultsDiv.innerHTML = '<h2>Results</h2>';
+                const table = document.createElement('table');
+                table.className = 'table table-striped';
+                table.innerHTML = `
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Close</th>
+                            <th>MA</th>
+                            <th>Daily Return</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.data.map(row => `
+                            <tr>
+                                <td>${new Date(row.Date).toLocaleDateString()}</td>
+                                <td>${row.Close.toFixed(2)}</td>
+                                <td>${row.MA ? row.MA.toFixed(2) : 'N/A'}</td>
+                                <td>${row.Daily_Return ? (row.Daily_Return * 100).toFixed(2) + '%' : 'N/A'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                `;
+                tableResultsDiv.appendChild(table);
+
+                // Create the chart
+                const ctx = document.getElementById('stockChart').getContext('2d');
+                
+                // Destroy the previous chart if it exists
+                if (stockChart) {
+                    stockChart.destroy();
+                }
+
+                const chartData = {
+                    labels: data.data.map(row => new Date(row.Date)),
+                    datasets: [
+                        {
+                            label: 'Close Price',
+                            data: data.data.map(row => ({
+                                x: new Date(row.Date),
+                                y: row.Close
+                            })),
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            borderWidth: 1,
+                            fill: false,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Moving Average',
+                            data: data.data.map(row => ({
+                                x: new Date(row.Date),
+                                y: row.MA
+                            })),
+                            borderColor: 'rgba(153, 102, 255, 1)',
+                            borderWidth: 1,
+                            fill: false,
+                            yAxisID: 'y'
+                        },
+                        {
+                            label: 'Daily Return',
+                            data: data.data.map(row => ({
+                                x: new Date(row.Date),
+                                y: row.Daily_Return * 100
+                            })),
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 1,
+                            fill: false,
+                            yAxisID: 'y1'
+                        }
+                    ]
+                };
+
+                stockChart = new Chart(ctx, {
+                    type: 'line',
+                    data: chartData,
+                    options: {
+                        responsive: true,
+                        interaction: {
+                            mode: 'index',
+                            intersect: false,
+                        },
+                        stacked: false,
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'Stock Price, Moving Average, and Daily Return'
+                            }
+                        },
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: 'day'
+                                },
+                                title: {
+                                    display: true,
+                                    text: 'Date'
+                                }
+                            },
+                            y: {
+                                type: 'linear',
+                                display: true,
+                                position: 'left',
+                                title: {
+                                    display: true,
+                                    text: 'Price'
+                                }
+                            },
+                            y1: {
+                                type: 'linear',
+                                display: true,
+                                position: 'right',
+                                title: {
+                                    display: true,
+                                    text: 'Daily Return (%)'
+                                },
+                                // grid line settings
+                                grid: {
+                                    drawOnChartArea: false, // only want the grid lines for one axis to show up
+                                },
+                            },
+                        }
+                    }
+                });
+            } else {
+                tableResultsDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+            }
+        })
+        .catch(error => {
+            document.getElementById('tableResults').innerHTML = `<div class="alert alert-danger">An error occurred: ${error}</div>`;
+        });
+    });
+});
+</script>
+{% endblock %}
