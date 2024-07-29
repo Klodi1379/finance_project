@@ -4,62 +4,69 @@
 
 {% block content %}
 <h1>Risk Assessment</h1>
-<form id="riskForm">
-    <div class="mb-3">
-        <label for="symbol" class="form-label">Stock Symbol</label>
-        <input type="text" class="form-control" id="symbol" name="symbol" required>
+<form id="riskAssessmentForm">
+    {% csrf_token %}
+    <div class="form-group">
+        <label for="symbol">Stock Symbol:</label>
+        <input type="text" id="symbol" name="symbol" class="form-control" required>
     </div>
-    <div class="mb-3">
-        <label for="start_date" class="form-label">Start Date</label>
-        <input type="date" class="form-control" id="start_date" name="start_date" required>
+    <div class="form-group">
+        <label for="start_date">Start Date:</label>
+        <input type="date" id="start_date" name="start_date" class="form-control" required>
     </div>
-    <div class="mb-3">
-        <label for="end_date" class="form-label">End Date</label>
-        <input type="date" class="form-control" id="end_date" name="end_date" required>
+    <div class="form-group">
+        <label for="end_date">End Date:</label>
+        <input type="date" id="end_date" name="end_date" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="risk_free_rate">Risk-Free Rate (%):</label>
+        <input type="number" id="risk_free_rate" name="risk_free_rate" class="form-control" step="0.01" value="1.0">
     </div>
     <button type="submit" class="btn btn-primary">Assess Risk</button>
 </form>
 
 <div id="results" class="mt-4">
-    <div id="riskResults"></div>
+    <div id="riskMetrics"></div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('riskForm').addEventListener('submit', function(e) {
+    document.getElementById('riskAssessmentForm').addEventListener('submit', function(e) {
         e.preventDefault();
         
         const formData = {
             symbol: document.getElementById('symbol').value,
             start_date: document.getElementById('start_date').value,
-            end_date: document.getElementById('end_date').value
+            end_date: document.getElementById('end_date').value,
+            risk_free_rate: parseFloat(document.getElementById('risk_free_rate').value) / 100  // Convert to decimal
         };
 
         fetch('{% url "data_processing:risk_assessment" %}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
             },
             body: JSON.stringify(formData)
         })
         .then(response => response.json())
         .then(data => {
-            const riskResultsDiv = document.getElementById('riskResults');
+            const riskMetricsDiv = document.getElementById('riskMetrics');
             if (data.success) {
-                riskResultsDiv.innerHTML = `
-                    <h2>Risk Assessment Results</h2>
-                    <p>Value at Risk (VaR): ${data.var.toFixed(2)}</p>
-                    <p>Conditional Value at Risk (CVaR): ${data.cvar.toFixed(2)}</p>
-                `;
+                let metricsHTML = '<h2>Risk Metrics</h2><table class="table"><tbody>';
+                for (const [key, value] of Object.entries(data.risk_metrics)) {
+                    metricsHTML += `<tr><td>${key.replace(/_/g, ' ').toUpperCase()}</td><td>${value.toFixed(4)}</td></tr>`;
+                }
+                metricsHTML += '</tbody></table>';
+                riskMetricsDiv.innerHTML = metricsHTML;
             } else {
-                riskResultsDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
+                riskMetricsDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
             }
         })
         .catch(error => {
-            document.getElementById('riskResults').innerHTML = `<div class="alert alert-danger">An error occurred: ${error}</div>`;
+            document.getElementById('riskMetrics').innerHTML = `<div class="alert alert-danger">An error occurred: ${error}</div>`;
         });
     });
 });

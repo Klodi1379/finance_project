@@ -71,7 +71,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 const tbody = document.createElement('tbody');
                 data.results.forEach(row => {
                     const tr = document.createElement('tr');
-                    tr.innerHTML = `<td>${row.Date}</td><td>${row.Close.toFixed(2)}</td><td>${row.MA.toFixed(2)}</td><td>${row.Daily_Return.toFixed(2)}%</td><td>${row.Prediction.toFixed(2)}</td>`;
+                    tr.innerHTML = `
+                        <td>${row.Date}</td>
+                        <td>${row.Close !== null && row.Close !== undefined ? row.Close.toFixed(2) : 'N/A'}</td>
+                        <td>${row.MA !== null && row.MA !== undefined ? row.MA.toFixed(2) : 'N/A'}</td>
+                        <td>${row.Daily_Return !== null && row.Daily_Return !== undefined ? row.Daily_Return.toFixed(2) : 'N/A'}%</td>
+                        <td>${row.Prediction !== null && row.Prediction !== undefined ? row.Prediction.toFixed(2) : 'N/A'}</td>
+                    `;
                     tbody.appendChild(tr);
                 });
                 table.appendChild(tbody);
@@ -87,21 +93,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     datasets: [
                         {
                             label: 'Close Price',
-                            data: data.results.map(row => row.Close),
+                            data: data.results.map(row => row.Close !== null && row.Close !== undefined ? row.Close : NaN),
                             borderColor: 'rgba(75, 192, 192, 1)',
                             borderWidth: 1,
                             fill: false
                         },
                         {
                             label: 'Moving Average',
-                            data: data.results.map(row => row.MA),
+                            data: data.results.map(row => row.MA !== null && row.MA !== undefined ? row.MA : NaN),
                             borderColor: 'rgba(153, 102, 255, 1)',
                             borderWidth: 1,
                             fill: false
                         },
                         {
                             label: 'Daily Return',
-                            data: data.results.map(row => row.Daily_Return),
+                            data: data.results.map(row => row.Daily_Return !== null && row.Daily_Return !== undefined ? row.Daily_Return : NaN),
                             borderColor: 'rgba(255, 99, 132, 1)',
                             borderWidth: 1,
                             fill: false,
@@ -109,7 +115,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         },
                         {
                             label: 'Prediction',
-                            data: data.results.map(row => row.Prediction),
+                            data: data.results.map(row => row.Prediction !== null && row.Prediction !== undefined ? row.Prediction : NaN),
                             borderColor: 'rgba(255, 206, 86, 1)',
                             borderWidth: 1,
                             fill: false

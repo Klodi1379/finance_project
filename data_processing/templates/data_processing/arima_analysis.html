@@ -5,7 +5,20 @@
 {% block content %}
 <h1>ARIMA Analysis</h1>
 <form id="arimaForm">
-    <!-- Form fields same as before -->
+    {% csrf_token %}
+    <div class="form-group">
+        <label for="symbol">Stock Symbol:</label>
+        <input type="text" id="symbol" name="symbol" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="start_date">Start Date:</label>
+        <input type="date" id="start_date" name="start_date" class="form-control" required>
+    </div>
+    <div class="form-group">
+        <label for="end_date">End Date:</label>
+        <input type="date" id="end_date" name="end_date" class="form-control" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Analyze</button>
 </form>
 
 <div id="results" class="mt-4">
@@ -34,7 +47,7 @@ document.addEventListener('DOMContentLoaded', function() {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}'
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
             },
             body: JSON.stringify(formData)
         })
@@ -42,7 +55,53 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             const tableResultsDiv = document.getElementById('tableResults');
             if (data.success) {
-                // Populate table and create chart as before with added predictions
+                // Create table
+                let tableHTML = '<table class="table"><thead><tr><th>Date</th><th>Close</th><th>Prediction</th></tr></thead><tbody>';
+                data.data.forEach(row => {
+                    tableHTML += `<tr>
+                        <td>${row.Date}</td>
+                        <td>${row.Close !== null ? row.Close.toFixed(2) : 'N/A'}</td>
+                        <td>${row.Predictions !== null ? row.Predictions.toFixed(2) : 'N/A'}</td>
+                    </tr>`;
+                });
+                tableHTML += '</tbody></table>';
+                tableResultsDiv.innerHTML = tableHTML;
+
+                // Create chart
+                const ctx = document.getElementById('stockChart').getContext('2d');
+                if (stockChart) {
+                    stockChart.destroy();
+                }
+                stockChart = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        datasets: [{
+                            label: 'Actual Close',
+                            data: data.data.map(row => ({x: new Date(row.Date), y: row.Close})).filter(point => point.y !== null),
+                            borderColor: 'blue',
+                            fill: false
+                        }, {
+                            label: 'Predicted Close',
+                            data: data.data.map(row => ({x: new Date(row.Date), y: row.Predictions})).filter(point => point.y !== null),
+                            borderColor: 'red',
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            x: {
+                                type: 'time',
+                                time: {
+                                    unit: 'day'
+                                }
+                            },
+                            y: {
+                                beginAtZero: false
+                            }
+                        }
+                    }
+                });
             } else {
                 tableResultsDiv.innerHTML = `<div class="alert alert-danger">${data.error}</div>`;
             }

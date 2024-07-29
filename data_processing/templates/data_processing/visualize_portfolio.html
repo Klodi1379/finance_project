@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block title %}Visualize Portfolio{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <h1 class="mb-4">Portfolio Visualization</h1>
+    <form id="portfolioForm" class="mb-4">
+        <div id="symbolInputs">
+            <div class="form-row mb-2">
+                <div class="col">
+                    <input type="text" class="form-control symbol-input" placeholder="Stock Symbol" required>
+                </div>
+                <div class="col">
+                    <input type="number" class="form-control weight-input" placeholder="Weight (%)" required min="0" max="100" step="0.01">
+                </div>
+            </div>
+        </div>
+        <button type="button" id="addSymbol" class="btn btn-secondary mb-2">Add Another Stock</button>
+        <button type="submit" class="btn btn-primary">Visualize Portfolio</button>
+    </form>
+    <div id="chartLoading" class="d-none">
+        <div class="spinner-border text-primary" role="status">
+            <span class="sr-only">Loading...</span>
+        </div>
+    </div>
+    <div id="portfolioChart"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script>
+document.getElementById('addSymbol').addEventListener('click', function() {
+    const newRow = document.createElement('div');
+    newRow.className = 'form-row mb-2';
+    newRow.innerHTML = `
+        <div class="col">
+            <input type="text" class="form-control symbol-input" placeholder="Stock Symbol" required>
+        </div>
+        <div class="col">
+            <input type="number" class="form-control weight-input" placeholder="Weight (%)" required min="0" max="100" step="0.01">
+        </div>
+    `;
+    document.getElementById('symbolInputs').appendChild(newRow);
+});
+
+document.getElementById('portfolioForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const symbols = Array.from(document.getElementsByClassName('symbol-input')).map(input => input.value);
+    const weights = Array.from(document.getElementsByClassName('weight-input')).map(input => parseFloat(input.value) / 100);
+
+    const formData = {
+        symbols: symbols,
+        weights: weights
+    };
+
+    document.getElementById('chartLoading').classList.remove('d-none');
+
+    fetch('{% url "data_processing:visualize_portfolio" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify(formData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('chartLoading').classList.add('d-none');
+        if (data.success) {
+            Plotly.newPlot('portfolioChart', JSON.parse(data.portfolio_chart));
+        } else {
+            alert('Error: ' + data.error);
+        }
+    })
+    .catch(error => {
+        document.getElementById('chartLoading').classList.add('d-none');
+        console.error('Error:', error);
+        alert('An error occurred while visualizing the portfolio.');
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,85 @@
+{% extends 'base.html' %}
+
+{% block title %}Visualize Stock Data{% endblock %}
+
+{% block content %}
+<h1>Visualize Stock Data</h1>
+<form id="visualizeForm">
+    <!-- Form fields -->
+    <div class="mb-3">
+        <label for="symbol" class="form-label">Stock Symbol</label>
+        <select class="form-control" id="symbol" name="symbol" required>
+            <option value="AAPL">Apple (AAPL)</option>
+            <option value="GOOGL">Alphabet (GOOGL)</option>
+            <option value="MSFT">Microsoft (MSFT)</option>
+            <option value="AMZN">Amazon (AMZN)</option>
+            <option value="TSLA">Tesla (TSLA)</option>
+        </select>
+    </div>
+    <div class="mb-3">
+        <label for="start_date" class="form-label">Start Date</label>
+        <input type="date" class="form-control" id="start_date" name="start_date" required>
+    </div>
+    <div class="mb-3">
+        <label for="end_date" class="form-label">End Date</label>
+        <input type="date" class="form-control" id="end_date" name="end_date" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Visualize Data</button>
+</form>
+
+<div id="results" class="mt-4">
+    <div id="stockChartContainer"></div>
+    <div id="technicalChartContainer"></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('visualizeForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = {
+            symbol: document.getElementById('symbol').value,
+            start_date: document.getElementById('start_date').value,
+            end_date: document.getElementById('end_date').value
+        };
+
+        fetch('{% url "data_processing:visualize_stock_data" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Stock Chart
+                const stockChartContainer = document.getElementById('stockChartContainer');
+                stockChartContainer.innerHTML = '';
+                const stockCanvas = document.createElement('canvas');
+                stockChartContainer.appendChild(stockCanvas);
+                new Chart(stockCanvas, JSON.parse(data.stock_chart));
+
+                // Technical Chart
+                const technicalChartContainer = document.getElementById('technicalChartContainer');
+                technicalChartContainer.innerHTML = '';
+                const technicalCanvas = document.createElement('canvas');
+                technicalChartContainer.appendChild(technicalCanvas);
+                new Chart(technicalCanvas, JSON.parse(data.technical_chart));
+            } else {
+                alert(data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('An error occurred while processing your request.');
+        });
+    });
+});
+</script>
+{% endblock %}
